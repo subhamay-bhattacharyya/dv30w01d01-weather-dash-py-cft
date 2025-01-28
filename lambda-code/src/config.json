@@ -1,0 +1,9 @@
+{
+    "s3bBucketName": "dv30wk01d01-weather-dashboard-devl-us-east-1",
+    "awsSecretName": "dv30wk01d01-api-key-devl-us-east-1",
+    "kmsKeyId": "arn:aws:kms:us-east-1:637423502513:key/494509e4-3bc5-44b8-9c4d-12449900d395",
+    "contentType": "application/json",
+    "encryptionType":"aws:kms",
+    "baseURL": "https://api.openweathermap.org/data/",
+    "apiVersion": "2.5"
+}
