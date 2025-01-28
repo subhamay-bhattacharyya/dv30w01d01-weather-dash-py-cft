@@ -1,0 +1,25 @@
+#### Version: 1.0.0
+Initial release of the Weather Data Repository.
+Version: 1.0.0
+Author: Subhamay Bhattacharyya
+Created: 27-Jan-2025
+Updated:
+Description: This repositoy contains the CloudFormation root stack template along with Lambda Python code.
+
+## Features
+- CloudFormation root stack template with the following resources:
+  - AWS Recources
+    - VPC
+    - Network ACL
+    - Subnets
+    - Route Table
+    - Route Table association
+    - Elastic IP
+    - Internet Gateway
+    - NAT Gateway
+    - Security Group
+    - S3 bucket
+    - Lambda function
+    - IAM role
+    - IAM policy
+- Lambda Python code

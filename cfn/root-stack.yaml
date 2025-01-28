@@ -1,0 +1,1074 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "DevOps 30 Day Challenge:: Week 1 - Day 1: Root stack template to create
+  VPC/Subnets,Security Group, VPC Endpoint, Secrets, S3 Bucket, Lambda Function."
+
+Metadata:
+  TemplateName: root-stack.yaml
+  TemplateType: VPC / Subnets / S3 Bucket / Lambda Function
+  Version: 1.0.0
+  Owner: Subhamay Bhattacharyya
+  ProjectName: DevOps 30 Day Challenge, Week 1 - Day 1
+  Modification History:
+    - 1.0.0 - Jan 07, 2025 -- Initial Version
+  StepsToTest: Manually verify the Stack.
+  StepsToCleanup: Stack delete command
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      ################################## Project Name and Environment ##############################
+      - Label:
+          default: 'Project Name and Environment:'
+        Parameters:
+          - ProjectName
+          - Environment
+      ################################## GitHub Attributes #########################################
+      - Label:
+          default: 'GitHub Attributes:'
+        Parameters:
+          - GitHubRef
+          - GitHubURL
+          - GitHubWFRunNumber
+          - GitHubSHA
+          - GitHubRepository
+          - CiBuild
+      ################################## Code Repository ###########################################
+      - Label:
+          default: 'Code Repository:'
+        Parameters:
+          - CodeRepositoryS3Bucket
+          # - LambdaCodeRepositoryS3Bucket
+      ################################## KMS #######################################################
+      - Label:
+          default: "KMS Key:"
+        Parameters:
+          - KmsMasterKeyAlias
+          - KmsMasterKeyArn
+      ################################## S3 Bucket #################################################
+      - Label:
+          default: "S3 Bucket Configuration:"
+        Parameters:
+          - S3BucketBaseName
+          - S3BucketBlockPublicAcls
+          - S3BucketBlockPublicPolicy
+          - S3BucketIgnorePublicAcls
+          - S3BucketRestrictPublicBuckets
+          - BucketVersioningEnabled
+      ################################## Lifecycle Configuration ###################################
+      - Label:
+          default: "S3 Bucket Lifecycle Configuration:"
+        Parameters:
+          - S3LifecycleConfigurationEnabled
+          - TransitionPrefix
+          - StandardIATransitionEnabled
+          - TransitionToIADays
+          - IntelligentTieringEnabled
+          - TransitionToITDays
+          - OneZoneIATransitionEnabled
+          - TransitionToOZIADays
+          - GlacierIRTransitionEnabled
+          - TransitionToGlacierIRDays
+          - GlacierTransitionEnabled
+          - TransitionToGlacierDays
+          - DeepArchiveTransitionEnabled
+          - TransitionToDeepArchiveDays
+          - EnableExpiration
+          - ExpirationDays
+      ################################## Lambda ####################################################
+      - Label:
+          default: "Lambda Function Configuration:"
+        Parameters:
+        - LambdaFunctionBaseName
+        - LambdaFunctionDescription
+        - LambdaRuntime
+        - LambdaFunctionTimeoutSecs
+        - LambdaFunctionMemory
+      ################################## AWS Secret ################################################
+      - Label:
+          default: "Secret Configuration:"
+        Parameters:
+        - SecretBaseName
+    ParameterLabels:
+      ################################## Project Name and Environment ##############################
+      ProjectName:
+        default: "Name of the Project."
+      Environment:
+        default: "Name of the Deployment Environment."
+      ################################## GitHub Attributes #########################################
+      GitHubRef:
+        default: "GitHub Reference Branch or Tag."
+      GitHubURL:
+        default: "URL of the GitHub Repository."
+      GitHubWFRunNumber:
+        default: "GitHub Workflow Execution Run Number."
+      GitHubSHA:
+        default: "GitHub Commit SHA."
+      GitHubRepository:
+        default: "Name of the GitHub Repository."
+      CiBuild:
+        default: "Continuous Integration Build Identifier."
+      ################################## Code Repository Bucket ####################################
+      CodeRepositoryS3Bucket:
+        default: S3 Bucket where the nested stack templates are available.
+      # LambdaCodeRepositoryS3Bucket:
+      #   default: S3 Bucket where the Lambda code with dependencies are available.
+      # ################################## KMS #######################################################
+      KmsMasterKeyAlias:
+        default: "KMS Master Key Alias."
+      KmsMasterKeyArn:
+        default: "KMS Master Key Arn."
+      ################################## S3 Bucket #################################################
+      S3BucketBaseName:
+        default: "Base name for the S3 bucket."
+      S3BucketBlockPublicAcls:
+        default: "Block public ACLs setting."
+      S3BucketBlockPublicPolicy:
+        default: "Allow Block Public Policy."
+      S3BucketIgnorePublicAcls:
+        default: "Ignore public ACLs setting."
+      S3BucketRestrictPublicBuckets:
+        default: "Restrict public buckets setting."
+      BucketVersioningEnabled:
+        default: "Enable versioning for the bucket."
+      ################################## Lifecycle Configuration ###################################
+      S3LifecycleConfigurationEnabled:
+        default: "Enable lifecycle configuration for the bucket."
+      TransitionPrefix:
+        default: "Prefix for lifecycle transition rules."
+      StandardIATransitionEnabled:
+        default:  "Enable transition to Standard-IA storage class."
+      TransitionToIADays:
+        default: "Number of days before transitioning to Standard-IA."
+      IntelligentTieringEnabled:
+        default: "Enable transition to Intelligent-Tiering storage class."
+      TransitionToITDays:
+        default: "Number of days before transitioning to Intelligent-Tiering."
+      OneZoneIATransitionEnabled:
+        default: "Enable transition to One Zone-IA storage class."
+      TransitionToOZIADays:
+        default: "Number of days before transitioning to One Zone-IA."
+      GlacierIRTransitionEnabled:
+        default: "Enable transition to Glacier Instant Retrieval storage class."
+      TransitionToGlacierIRDays:
+        default: "Number of days before transitioning to Glacier Instant Retrieval."
+      GlacierTransitionEnabled:
+        default: "Number of days before transitioning to Glacier."
+      TransitionToGlacierDays:
+        default: "Number of days before transitioning to Glacier."
+      DeepArchiveTransitionEnabled:
+        default: "Enable transition to Deep Archive storage class."
+      TransitionToDeepArchiveDays:
+        default: "Number of days before transitioning to Deep Archive."
+      EnableExpiration:
+        default: "Enable object expiration."
+      ExpirationDays:
+        default:"Number of days before object expiration."
+      ################################## Lambda ####################################################
+      LambdaFunctionBaseName:
+        default: "Base name of the Lambda function."
+      LambdaFunctionDescription:
+        default: "Description of the Lambda function."
+      LambdaRuntime:
+        default: "Runtime environment for the Lambda function."
+      LambdaFunctionTimeoutSecs:
+        default: "Timeout for the Lambda function in seconds."
+      LambdaFunctionMemory:
+        default: "Memory allocation for the Lambda function."
+      ################################## AWS Secret ################################################
+      SecretBaseName:
+        default: "The base name of the secret."
+
+Parameters:
+  ###################################### Project Name and Environment ##############################
+  ProjectName:
+    Default: dv30wk01d01
+    Description: The Project name to be used as a resource tag value.
+    Type: String
+    MinLength: "5"
+    MaxLength: "30"
+    AllowedPattern: ^[a-z0-9-]+$
+    ConstraintDescription: The length should be between 5 and 30, must contain only
+      lowercase alphabets, numbers, or dashes.
+  Environment:
+    Default: devl
+    Description: The Environment name to be used as a resource tag value.
+    Type: String
+    AllowedValues:
+      - devl
+      - test
+      - prod
+    ConstraintDescription: The Environment must be devl / test or prod
+  ###################################### GitHub Attributes #########################################
+  GitHubRef:
+    Default: ref_name
+    Description: GitHub Ref name to be used as a resource tag value.
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9/_-]+$
+    ConstraintDescription: The GitHub Ref Name can only contain alphanumeric
+      characters, slashes, underscores, and hyphens.
+  GitHubURL:
+    Default: https://github.com/owner/repository
+    Description: GitHub URL to be used as a resource tag value.
+    Type: String
+    AllowedPattern: ^https://github.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+/?$
+    ConstraintDescription: The GitHub URL must start with 'https://github.com/' and
+      can only contain alphanumeric characters, dots, underscores, and hyphens.
+  GitHubWFRunNumber:
+    Default: "1"
+    Description: The Workflow run number to be used as a resource tag value.
+    Type: Number
+  GitHubSHA:
+    Default: d3b07384d113edec49eaa6238ad5ff00f6fb3796
+    Description: The sha value of the last commit to be used as a resource tag value.
+    Type: String
+    AllowedPattern: ^[a-fA-F0-9]{40}$
+    ConstraintDescription: The SHA value must be a 40-character hexadecimal string.
+  GitHubRepository:
+    Default: 0001-reponame-py-cft
+    Description: The GitHub Repository name to be used as a resource tag value.
+    Type: String
+    MinLength: "10"
+    MaxLength: "30"
+    AllowedPattern: ^\d{4}-[a-z]+(-[a-z]+)*$
+    ConstraintDescription: The repository length should be between 10 and 30, must
+      contain only lowercase letters, numbers, dashes, dots, and should start
+      with a letter.
+  CiBuild:
+    Default: ''
+    Description: Ci Build of the feature branch to be appended to a resource name.
+    Type: String
+  ###################################### Code Repository ###########################################
+  CodeRepositoryS3Bucket:
+    Default: subhamay-aws-cfn-nested-stack-templates-us-east-1
+    Description: S3 Bucket for the nested stack templates.
+    Type: String
+    AllowedPattern: ^[a-z0-9.-]{3,63}$
+    ConstraintDescription: The S3 bucket name must be between 3 and 63 characters
+      long, and can only contain lowercase letters, numbers, dots, and hyphens. ###################################### GitHub Attributes #########################################
+  LambdaCodeRepositoryS3Bucket:
+    Default: subhamay-code-repo-637423502513-devl-us-east-1
+    Description: S3 Bucket Name For Lambda Code Repository.
+    Type: String
+    AllowedPattern: ^[a-z0-9.-]{3,63}$
+    ConstraintDescription: The S3 bucket name must be between 3 and 63 characters
+      long, and can only contain lowercase letters, numbers, dots, and hyphens.
+  ###################################### KMS #######################################################
+  KmsMasterKeyAlias:
+    Default: "SB-KMS"
+    Description: "The KMS master key alias to be used for server-side encryption."
+    Type: String
+    MinLength: "5"
+    MaxLength: "20"
+    AllowedPattern: "^[A-Z][A-Z-]+$"
+    ConstraintDescription: "The length of the KMS Key Alias should be beteen 5 and 20 and can only contain lowercase alphanumeric characters and dash."
+  KmsMasterKeyArn:
+    Default: "arn:aws:kms:us-east-1:637423502513:key/494509e4-3bc5-44b8-9c4d-12449900d395"
+    Description: "The KMS master key ARN to be used for server-side encryption."
+    Type: String
+    AllowedPattern: "^$|^arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/[a-zA-Z0-9-]+$"
+    ConstraintDescription: "The ARN must be a valid KMS key ARN."
+  ###################################### S3 Bucket #################################################
+  S3BucketBaseName:
+    Default: weather-dashboard
+    Description: "The base name for the S3 bucket used for source data. The region will be added as a suffix by the template."
+    Type: String
+    MinLength: "3"
+    MaxLength: "20"
+    AllowedPattern: "^[a-z0-9.-]{3,20}$"
+    ConstraintDescription: "The S3 bucket name must be 3?63 characters long and can only include lowercase letters, numbers, dots, and hyphens."
+
+  S3BucketBlockPublicAcls:
+    Default: "true"
+    Description: "Indicates whether to block public ACLs for the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  S3BucketBlockPublicPolicy:
+    Default: "true"
+    Description: "Indicates whether to block public policies for the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  S3BucketIgnorePublicAcls:
+    Default: "true"
+    Description: "Indicates whether to ignore public ACLs for the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  S3BucketRestrictPublicBuckets:
+    Default: "true"
+    Description: "Indicates whether to restrict public access to the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  BucketVersioningEnabled:
+    Default: "false"
+    Description: "Specifies whether versioning is enabled for the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  ##################################### Lifecycle Configuration ###################################
+  S3LifecycleConfigurationEnabled:
+    Default: "false"
+    Description: "Indicates whether lifecycle configuration is enabled for the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionPrefix:
+    Default: "data/"
+    Description: "Specifies the prefix for objects to apply lifecycle transitions."
+    Type: String
+
+  StandardIATransitionEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to Standard-IA storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToIADays:
+    Default: "30"
+    Description: "The number of days before objects transition to Standard-IA storage."
+    Type: Number
+    MinValue: "30"
+    MaxValue: "185"
+
+  IntelligentTieringEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to Intelligent Tiering storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToITDays:
+    Default: "60"
+    Description: "The number of days before objects transition to Intelligent Tiering storage."
+    Type: Number
+    MinValue: "60"
+    MaxValue: "365"
+
+  OneZoneIATransitionEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to One Zone-IA storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToOZIADays:
+    Default: "90"
+    Description: "The number of days before objects transition to One Zone-IA storage."
+    Type: Number
+    MinValue: "90"
+    MaxValue: "365"
+
+  GlacierIRTransitionEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to Glacier Instant Retrieval storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToGlacierIRDays:
+    Default: "120"
+    Description: "The number of days before objects transition to Glacier Instant Retrieval storage."
+    Type: Number
+    MinValue: "120"
+    MaxValue: "365"
+
+  GlacierTransitionEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to Glacier storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToGlacierDays:
+    Default: "60"
+    Description: "The number of days before objects transition to Glacier storage."
+    Type: Number
+    MinValue: "60"
+    MaxValue: "500"
+
+  DeepArchiveTransitionEnabled:
+    Default: "false"
+    Description: "Specifies whether objects are transitioned to Deep Archive storage."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  TransitionToDeepArchiveDays:
+    Default: "365"
+    Description: "The number of days before objects transition to Deep Archive storage."
+    Type: Number
+    MinValue: "365"
+    MaxValue: "500"
+
+  EnableExpiration:
+    Default: "false"
+    Description: "Indicates whether expiration is enabled for objects in the S3 bucket."
+    Type: String
+    AllowedValues: ["true", "false"]
+
+  ExpirationDays:
+    Default: "90"
+    Description: "The number of days before objects in the S3 bucket are expired."
+    Type: Number
+    MinValue: "30"
+    MaxValue: "365"
+
+  ###################################### Lambda ####################################################
+  LambdaFunctionBaseName:
+    Default: weather-dashboard
+    Description: "The base name for the Lambda function. The region and environment will be appended as a suffix by the template."
+    Type: String
+    MinLength: "5"
+    MaxLength: "40"
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9-]*$"
+    ConstraintDescription: "The name must be between 5 and 40 characters long, start with a letter, and may include letters, numbers, or hyphens."
+
+  LambdaFunctionDescription:
+    Default: Fetching the weather data using Open Map API and storing them in a S3 bucket.
+    Description: "A description of the Lambda function."
+    Type: String
+    MaxLength: "200"
+    AllowedPattern: "^$|^[A-Z][a-zA-Z0-9 .,]*$"
+    ConstraintDescription: "The description must be 0?200 characters long, start with an uppercase letter, and may include letters, numbers, spaces, dots, or commas."
+
+  LambdaRuntime:
+    Default: python3.8
+    Description: "Specifies the runtime for the Lambda function."
+    Type: String
+    AllowedValues: [python3.8, python3.9, python3.10, python3.11, nodejs18.x]
+    ConstraintDescription: "The runtime must be Python 3.8 or higher, or Node.js 18.x or higher."
+
+  LambdaFunctionTimeoutSecs:
+    Default: "300"
+    Description: "The timeout period for the Lambda function in seconds."
+    Type: Number
+    MinValue: "3"
+    MaxValue: "900"
+    ConstraintDescription: "The timeout must be between 3 and 900 seconds."
+
+  LambdaFunctionMemory:
+    Default: "256"
+    Description: "The amount of memory allocated to the Lambda function in MB."
+    Type: Number
+    MinValue: "128"
+    MaxValue: "10240"
+    ConstraintDescription: "The memory allocation must be between 128 and 10,240 MB."
+
+  ###################################### Secret Manager ############################################
+  SecretBaseName:
+    Default: "api-key"
+    Description: "The Secret Base Name."
+    Type: String
+    MinLength: "5"
+    MaxLength: "50"
+    AllowedPattern: "[a-zA-Z0-9-]*"
+    ConstraintDescription: "The length of the Secret Base Name should be beteen 5 and 50 and can only contain alphanumeric characters and dash."
+
+######################################## Mapppings #################################################
+Mappings:
+  SubnetConfig:
+    VpcCidrBlock:
+      CIDR: 10.0.0.0/16
+    PrivateSubnetAZ1CidrBlock:
+      CIDR: 10.0.1.0/24
+    PrivateSubnetAZ2CidrBlock:
+      CIDR: 10.0.3.0/24
+    PublicSubnetAZ1CidrBlock:
+      CIDR: 10.0.2.0/24
+    PublicSubnetAZ2CidrBlock:
+      CIDR: 10.0.4.0/24
+
+Resources:
+
+  ###################################### VPC #######################################################
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/vpc.yaml
+      Parameters:
+        VPCCidrBlock: !FindInMap
+          - SubnetConfig
+          - VpcCidrBlock
+          - CIDR
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Network ACL ###############################################
+  NetworkACL:
+    Type: AWS::CloudFormation::Stack
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/network-acl.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Private Subnet AZ1 ########################################
+  PrivateSubnetAZ1:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/subnet.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        SubnetCidrBlock: !FindInMap
+          - SubnetConfig
+          - PrivateSubnetAZ1CidrBlock
+          - CIDR
+        EnableIPV6Cidr: "false"
+        AvaliabilityZone: "us-east-1a"
+        AZ: "az1"
+        NetworkAclId: !GetAtt NetworkACL.Outputs.NetworkAclId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Private Subnet AZ2 ########################################
+  PrivateSubnetAZ2:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/subnet.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        SubnetCidrBlock: !FindInMap
+          - SubnetConfig
+          - PrivateSubnetAZ2CidrBlock
+          - CIDR
+        AvaliabilityZone: "us-east-1b"
+        AZ: "az2"
+        NetworkAclId: !GetAtt NetworkACL.Outputs.NetworkAclId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Internet Gateway ##########################################
+  InternetGateway:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/internet-gateway.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        EgressOnly: "false"
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Public Subnet AZ1 ########################################
+  PublicSubnetAZ1:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/subnet.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        SubnetCidrBlock: !FindInMap
+          - SubnetConfig
+          - PublicSubnetAZ1CidrBlock
+          - CIDR
+        EnableIPV6Cidr: "false"
+        AvaliabilityZone: "us-east-1a"
+        AZ: "az1"
+        InternetGatewayId: !GetAtt InternetGateway.Outputs.InternetGatewayId
+        NetworkAclId: !GetAtt NetworkACL.Outputs.NetworkAclId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Public Subnet AZ2 ########################################
+  PublicSubnetAZ2:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/subnet.yaml
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        SubnetCidrBlock: !FindInMap
+          - SubnetConfig
+          - PublicSubnetAZ2CidrBlock
+          - CIDR
+        EnableIPV6Cidr: "false"
+        AvaliabilityZone: "us-east-1b"
+        AZ: "az2"
+        InternetGatewayId: !GetAtt InternetGateway.Outputs.InternetGatewayId
+        NetworkAclId: !GetAtt NetworkACL.Outputs.NetworkAclId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Nat Gateway AZ-1 ##########################################
+  NatGatewayAZ1:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/nat-gateway.yaml
+      Parameters:
+        PrivateRouteTableId: !GetAtt PrivateSubnetAZ1.Outputs.RouteTableId
+        PublicSubnetId: !GetAtt PublicSubnetAZ1.Outputs.SubnetId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Nat Gateway AZ-2 ##########################################
+  NatGatewayAZ2:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/nat-gateway.yaml
+      Parameters:
+        PrivateRouteTableId: !GetAtt PrivateSubnetAZ2.Outputs.RouteTableId
+        PublicSubnetId: !GetAtt PublicSubnetAZ2.Outputs.SubnetId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Lambda Security Group #####################################
+  LambdaSecurityGroup:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/security-group.yaml"
+      Parameters:
+        SecurityGroupBaseName: "lambda-sg"
+        SecurityGroupDescription: "Lambda Security Group"
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Lambda Security Group Ingress Rule - Allow HTTPS ##########
+  LambdaSecurityGroupIngressHTTPS:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/sg-rule.yaml"
+      Parameters:
+        RuleType: "ingress"
+        CidrType: "ipv4"
+        SecurityGroupId: !GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId
+        IPProtocol: "tcp"
+        FromPort: "443"
+        ToPort: "443"
+        CidrIp: !FindInMap
+          - SubnetConfig
+          - VpcCidrBlock
+          - CIDR
+        RuleDescription: "Allow HTTPS ingress"
+      TimeoutInMinutes: 15
+  ###################################### Lambda Security Group Egress Rule - Allow HTTPS ###########
+  LambdaSecurityGroupEgressHTTPS:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/sg-rule.yaml"
+      Parameters:
+        RuleType: "egress"
+        CidrType: "ipv4"
+        SecurityGroupId: !GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId
+        IPProtocol: "tcp"
+        FromPort: "443"
+        ToPort: "443"
+        CidrIp: !FindInMap
+          - SubnetConfig
+          - VpcCidrBlock
+          - CIDR
+        RuleDescription: "Allow HTTPS egress"
+      TimeoutInMinutes: 15
+  ###################################### S3 Gateway Endpoint #######################################
+  S3GatewayEndpoint:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/vpc-endpoint.yaml"
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        ServiceName: "s3"
+        RouteTableIds: !GetAtt PrivateSubnetAZ1.Outputs.RouteTableId #!Join [",", [!GetAtt PrivateSubnetAZ1.Outputs.RouteTableId, !GetAtt PrivateSubnetAZ2.Outputs.RouteTableId]]
+        SecurityGroupIds: !Join [",", [!GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId]]
+        S3BucketName: !Sub "${ProjectName}-${S3BucketBaseName}-${Environment}-${AWS::Region}${CiBuild}"
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+      TimeoutInMinutes: 15
+  ###################################### KMS Interface Endpoint ####################################
+  KmsInterfaceEndpoint:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/vpc-endpoint.yaml"
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        ServiceName: "kms"
+        KmsMasterKeyArn: !Ref KmsMasterKeyArn
+        SubnetIds: !Join [",", [!GetAtt PrivateSubnetAZ1.Outputs.SubnetId, !GetAtt PrivateSubnetAZ2.Outputs.SubnetId]]
+        SecurityGroupIds: !GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+      TimeoutInMinutes: 15
+  ###################################### Secret Manager ############################################
+  SecretManager:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/security/secret-manager.yaml"
+      Parameters:
+        SecretBaseName: !Ref SecretBaseName
+        SecretDescription: "Weather API Key"
+        KmsMasterKeyAlias: !Ref KmsMasterKeyAlias
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### Secrets Manager Interface Endpoint ########################
+  SecretsManagerInterfaceEndpoint:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/vpc/vpc-endpoint.yaml"
+      Parameters:
+        VpcId: !GetAtt VPC.Outputs.VpcId
+        ServiceName: "secretsmanager"
+        SubnetIds: !Join [",", [!GetAtt PrivateSubnetAZ1.Outputs.SubnetId, !GetAtt PrivateSubnetAZ2.Outputs.SubnetId]]
+        SecurityGroupIds: !Join [",", [!GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId]]
+        SecretArn: !GetAtt SecretManager.Outputs.SecretArn
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+      TimeoutInMinutes: 15
+  ###################################### Lambda IAM Role ###########################################
+  LambdaRole:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/iam/iam-role.yaml"
+      Parameters:
+        ServiceName: "lambda"
+        RolePath: "/"
+        RoleBaseName: "lambda-role"
+        RoleDescription: "IAM role used by weather dashboard Lambda function."
+        S3BucketPolicy: "read-only"
+        S3BucketArn: !Sub "arn:${AWS::Partition}:s3:::${ProjectName}-${S3BucketBaseName}-${Environment}-${AWS::Region}${CiBuild}" ###!GetAtt S3Bucket.Outputs.S3BucketArn
+        SecretPolicy: "read-secret"
+        SecretArn: !GetAtt SecretManager.Outputs.SecretArn
+        LambdaFunctionBaseName: !Ref LambdaFunctionBaseName
+        KmsMasterKeyArn: !Ref KmsMasterKeyArn
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+  ###################################### S3 Bucket #################################################
+  S3Bucket:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - LambdaRole
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/s3/s3-bucket.yaml"
+      Parameters:
+        S3BucketBaseName: !Ref S3BucketBaseName
+        S3BucketBlockPublicAcls: !Ref S3BucketBlockPublicAcls
+        S3BucketBlockPublicPolicy: !Ref S3BucketBlockPublicPolicy
+        S3BucketIgnorePublicAcls: !Ref S3BucketIgnorePublicAcls
+        S3BucketRestrictPublicBuckets: !Ref S3BucketRestrictPublicBuckets
+        BucketVersioningEnabled: !Ref BucketVersioningEnabled
+        KmsMasterKeyArn: !Ref KmsMasterKeyArn
+        S3VpcEndpointId: !GetAtt S3GatewayEndpoint.Outputs.S3VpcGatewayEndpointId
+        IAMRoleBaseName: "lambda-role"
+        WhitelistedUserId: AIDAZI2LGYSY7WDKOVKYW
+        WhitelistedRoleId: AROAZI2LGYSYVKL4XJGIN
+        S3LifecycleConfigurationEnabled: !Ref S3LifecycleConfigurationEnabled
+        TransitionPrefix: !Ref TransitionPrefix
+        StandardIATransitionEnabled: !Ref StandardIATransitionEnabled
+        TransitionToIADays: !Ref TransitionToIADays
+        IntelligentTieringEnabled: !Ref IntelligentTieringEnabled
+        TransitionToITDays: !Ref TransitionToITDays
+        OneZoneIATransitionEnabled: !Ref OneZoneIATransitionEnabled
+        TransitionToOZIADays: !Ref TransitionToOZIADays
+        GlacierIRTransitionEnabled: !Ref GlacierIRTransitionEnabled
+        TransitionToGlacierIRDays: !Ref TransitionToGlacierIRDays
+        GlacierTransitionEnabled: !Ref GlacierTransitionEnabled
+        TransitionToGlacierDays: !Ref TransitionToGlacierDays
+        DeepArchiveTransitionEnabled: !Ref DeepArchiveTransitionEnabled
+        TransitionToDeepArchiveDays: !Ref TransitionToDeepArchiveDays
+        EnableExpiration: !Ref EnableExpiration
+        ExpirationDays: !Ref ExpirationDays
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 30
+  ##################################### Lambda Function ###########################################
+  LambdaFunction:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/lambda/lambda-function.yaml"
+      Parameters:
+        CodeRepositoryS3Bucket: !Ref LambdaCodeRepositoryS3Bucket
+        LambdaFunctionBaseName: !Ref LambdaFunctionBaseName
+        LambdaFunctionDescription: !Ref LambdaFunctionDescription
+        LambdaHandler: "lambda_function.lambda_handler"
+        LambdaRuntime: !Ref LambdaRuntime
+        LambdaExecutionRoleArn: !GetAtt LambdaRole.Outputs.RoleArn
+        LambdaFunctionTimeoutSecs: !Ref LambdaFunctionTimeoutSecs
+        LambdaFunctionMemory: !Ref LambdaFunctionMemory
+        SubnetIds: !Join [",", [!GetAtt PrivateSubnetAZ1.Outputs.SubnetId , !GetAtt PrivateSubnetAZ2.Outputs.SubnetId]]
+        SecurityGroupIds: !Join [",", [!GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId]]
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        GitHubRef: !Ref GitHubRef
+        GitHubURL: !Ref GitHubURL
+        GitHubWFRunNumber: !Ref GitHubWFRunNumber
+        GitHubSHA: !Ref GitHubSHA
+        GitHubRepository: !Ref GitHubRepository
+        CiBuild: !Ref CiBuild
+      TimeoutInMinutes: 15
+Outputs:
+  ###################################### VPC #######################################################
+  VpcId:
+    Description: Vpc Id
+    Value: !GetAtt VPC.Outputs.VpcId
+  VpcCidrBlock:
+    Description: VPC CI/DR Block
+    Value: !GetAtt VPC.Outputs.CidrBlock
+  VpcCidrBlockAssociations:
+    Description: VPC CI/DR Block Associations
+    Value: !GetAtt VPC.Outputs.CidrBlockAssociations
+  VpcDefaultNetworkAcl:
+    Description: VPC Default ACL
+    Value: !GetAtt VPC.Outputs.DefaultNetworkAcl
+  VpcDefaultSecurityGroup:
+    Description: VPC Default Security Group
+    Value: !GetAtt VPC.Outputs.DefaultSecurityGroup
+  ###################################### Network ACL ################################################
+  NetworkAclId:
+    Description: Network ACL Id
+    Value: !GetAtt NetworkACL.Outputs.NetworkAclId
+  ###################################### Private Subnet - AZ1 ######################################
+  PrivateSubnetAZ1Id:
+    Description: Private Subnet-AZ1 Id
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.SubnetId
+  PrivateSubnetAZ1AvailabilityZone:
+    Description: Private Subnet-AZ1 Availability Zone
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.AvailabilityZone
+  PrivateSubnetAZ1AvailabilityZoneId:
+    Description: Private Subnet-AZ1 Availability ZoneId
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.AvailabilityZoneId
+  PrivateSubnetAZ1CidrBlock:
+    Description: Private Subnet-AZ1 CI/DR Block
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.CidrBlock
+  PrivateSubnetAZ1NetworkAclAssociationId:
+    Description: Private Subnet-AZ1 Network Acl Association Id
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.NetworkAclAssociationId
+  PrivateSubnetAZ1RTAssociationId:
+    Description: Private Subnet-AZ1 Subnet Route Table Association Id
+    Value: !GetAtt PrivateSubnetAZ1.Outputs.RouteTableAssociationId
+  ###################################### Private Subnet - AZ2 ######################################
+  PrivateSubnetAZ2Id:
+    Description: Private Subnet-AZ2 Id
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.SubnetId
+  PrivateSubnetAZ2AvailabilityZone:
+    Description: Private Subnet-AZ2 Availability Zone
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.AvailabilityZone
+  PrivateSubnetAZ2AvailabilityZoneId:
+    Description: Private Subnet-AZ2 Availability ZoneId
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.AvailabilityZoneId
+  PrivateSubnetAZ2CidrBlock:
+    Description: Private Subnet-AZ2 CI/DR Block
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.CidrBlock
+  PrivateSubnetAZ2NetworkAclAssociationId:
+    Description: Private Subnet-AZ2 Network Acl Association Id
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.NetworkAclAssociationId
+  PrivateSubnetAZ2RTAssociationId:
+    Description: Private Subnet-AZ2 Subnet Route Table Association Id
+    Value: !GetAtt PrivateSubnetAZ2.Outputs.RouteTableAssociationId
+  ###################################### Internet Gateway ##########################################
+  InternetGatewayId:
+    Description: Internet Gateway Id
+    Value: !GetAtt InternetGateway.Outputs.InternetGatewayId
+  ###################################### Public Subnet - AZ1 #######################################
+  PublicSubnetAZ1Id:
+    Description: Public Subnet-AZ1 Id
+    Value: !GetAtt PublicSubnetAZ1.Outputs.SubnetId
+  PublicSubnetAZ1AvailabilityZone:
+    Description: Public Subnet-AZ1 Availability Zone
+    Value: !GetAtt PublicSubnetAZ1.Outputs.AvailabilityZone
+  PublicSubnetAZ1AvailabilityZoneId:
+    Description: Public Subnet-AZ1 Availability ZoneId
+    Value: !GetAtt PublicSubnetAZ1.Outputs.AvailabilityZoneId
+  PublicSubnetAZ1CidrBlock:
+    Description: Public Subnet-AZ1 CI/DR Block
+    Value: !GetAtt PublicSubnetAZ1.Outputs.CidrBlock
+  PublicSubnetAZ1NetworkAclAssociationId:
+    Description: Public Subnet-AZ1 Network Acl Association Id
+    Value: !GetAtt PublicSubnetAZ1.Outputs.NetworkAclAssociationId
+  PublicSubnetAZ1RTAssociationId:
+    Description: Public Subnet-AZ1 Subnet Route Table Association Id
+    Value: !GetAtt PublicSubnetAZ1.Outputs.RouteTableAssociationId
+  ##################################### Public Subnet - AZ2 #######################################
+  PublicSubnetAZ2Id:
+    Description: Public Subnet-AZ2 Id
+    Value: !GetAtt PublicSubnetAZ2.Outputs.SubnetId
+  PublicSubnetAZ2AvailabilityZone:
+    Description: Public Subnet-AZ2 Availability Zone
+    Value: !GetAtt PublicSubnetAZ2.Outputs.AvailabilityZone
+  PublicSubnetAZ2AvailabilityZoneId:
+    Description: Public Subnet-AZ2 Availability ZoneId
+    Value: !GetAtt PublicSubnetAZ2.Outputs.AvailabilityZoneId
+  PublicSubnetAZ2CidrBlock:
+    Description: Public Subnet-AZ2 CI/DR Block
+    Value: !GetAtt PublicSubnetAZ2.Outputs.CidrBlock
+  PublicSubnetAZ2NetworkAclAssociationId:
+    Description: Public Subnet-AZ2 Network Acl Association Id
+    Value: !GetAtt PublicSubnetAZ2.Outputs.NetworkAclAssociationId
+  PublicSubnetAZ2RTAssociationId:
+    Description: Public Subnet-AZ2 Subnet Route Table Association Id
+    Value: !GetAtt PublicSubnetAZ2.Outputs.RouteTableAssociationId
+  ###################################### Nat Gateway AZ-1 ##########################################
+  NatGatewayAZ1ElasticIp:
+    Description: Nat Gateway AZ-1 Elastic Ip
+    Value: !GetAtt NatGatewayAZ1.Outputs.ElasticIp
+  NatGatewayAZ1Id:
+    Description: Nat Gateway AZ-1 Id
+    Value: !GetAtt NatGatewayAZ1.Outputs.NatGatewayId
+  ###################################### Nat Gateway AZ-2 ##########################################
+  NatGatewayAZ2ElasticIp:
+    Description: Nat Gateway AZ-2 Elastic Ip
+    Value: !GetAtt NatGatewayAZ1.Outputs.ElasticIp
+  NatGatewayAZ2Id:
+    Description: Nat Gateway AZ-2 Id
+    Value: !GetAtt NatGatewayAZ1.Outputs.NatGatewayId
+  ###################################### Security Group ############################################
+  LambdaSecurityGroupId:
+    Description: Lambda Security Group Id
+    Value: !GetAtt LambdaSecurityGroup.Outputs.SecurityGroupId
+  ###################################### S3 Gateway Endpoint #######################################
+  S3GatewayEndpointId:
+    Description: S3 Gateway Endpoint Id
+    Value: !GetAtt S3GatewayEndpoint.Outputs.S3VpcGatewayEndpointId
+  ###################################### KMS Interface Endpoint ####################################
+  KmsInterfaceEndpointId:
+    Description: KMS Interface Endpoint Id
+    Value: !GetAtt KmsInterfaceEndpoint.Outputs.KmVpcInterfaceEndpointId
+  ###################################### Secret Manager ############################################
+  SecretManagerSecretArn:
+    Description: Secret Manager Secret Arn
+    Value: !GetAtt SecretManager.Outputs.SecretArn
+  ###################################### Secret Manager Interface Endpoint #########################
+  SecretManagerInterfaceEndpointId:
+    Description: Secret Manager Interface Endpoint Id
+    Value: !GetAtt SecretsManagerInterfaceEndpoint.Outputs.SecretsVpcInterfaceEndpointId
+  ###################################### Lambda IAM Role ###########################################
+  LambdaExecutionRoleName:
+    Description: Lambda Execution Role Name
+    Value: !GetAtt LambdaRole.Outputs.RoleName
+  LambdaExecutionRoleArn:
+    Description: Lambda Execution Role Arn
+    Value: !GetAtt LambdaRole.Outputs.RoleArn
+  LambdaExecutionRoleId:
+    Description: Lambda Execution Role Id
+    Value: !GetAtt LambdaRole.Outputs.RoleId
+  ###################################### S3 Bucket #################################################
+  S3BucketArn:
+    Description: S3 Bucket Arn
+    Value: !GetAtt S3Bucket.Outputs.S3BucketArn
+  ##################################### Lambda Function ###########################################
+  LambdaFunctionArn:
+    Description: Lambda Function Arn
+    Value: !GetAtt LambdaFunction.Outputs.LambdaFunctionArn

@@ -1,0 +1,7 @@
+.DS_Store
+openweather-email.txt
+api-key.txt
+lambda-build.txt
+cfn/params/cfn-parameters.json
+test-event.json
+*.zip
